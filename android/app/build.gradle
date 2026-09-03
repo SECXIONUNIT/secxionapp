@@ -32,7 +32,7 @@ android {
         // The name of the PWA
         resValue "string", "appName", "Secxion"
         // The URL of the PWA
-        resValue "string", "launchUrl", "http://10.0.2.2:3000/"
+        resValue "string", "launchUrl", "http://10.0.2.2:3001/"
         // The URL of the PWA without the protocol (for Digital Asset Links)
         resValue "string", "hostName", "10.0.2.2"
         // The color to use for the status bar
