@@ -69,6 +69,14 @@ export const updateMarketStatus = async (req, res) => {
 
     const previousStatus = existingMarket.status;
 
+    if (previousStatus === status) {
+      return res.status(409).json({
+        message: "Market already has this status",
+        error: true,
+        success: false,
+      });
+    }
+
     const updateData = { status };
 
     if (status === "CANCEL") {

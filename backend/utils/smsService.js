@@ -3,17 +3,6 @@ import axios from "axios";
 const DEFAULT_TERMII_BASE_URL = "https://api.ng.termii.com/api/sms/send";
 const DEFAULT_AT_BASE_URL = "https://api.sandbox.africastalking.com/version1/messaging";
 
-const normalizePhoneNumber = (value = "") =>
-  String(value)
-    .trim()
-    .replace(/[^\d+]/g, "")
-    .replace(/(?!^)\+/g, "");
-
-const normalizeSecret = (value = "") =>
-  String(value)
-    .trim()
-    .replace(/^['"`]+|['"`]+$/g, "");
-
 const getSmsProvider = () =>
   String(process.env.SMS_PROVIDER || "termii").trim().toLowerCase();
 
@@ -36,171 +25,100 @@ export const getSmsHealthStatus = () => ({
   channel: process.env.TERMII_CHANNEL || "generic",
 });
 
-const sendWithTermii = async (phoneNumber, code) => {
-  const apiKey = normalizeSecret(process.env.TERMII_API_KEY || "");
-  const baseUrl = process.env.TERMII_BASE_URL || DEFAULT_TERMII_BASE_URL;
-  const senderId = process.env.TERMII_SENDER_ID || "Secxion";
-  const channel = process.env.TERMII_CHANNEL || "generic";
+const normalizePhoneNumber = (value = "") =>
+  String(value).trim().replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
 
-  if (!apiKey) {
-    throw new Error(
-      "SMS provider is not configured. Set TERMII_API_KEY to enable phone verification SMS.",
-    );
+const providerError = (error, fallbackMessage) => {
+  const wrapped = new Error(
+    error?.response?.data?.message || error?.response?.data?.error || fallbackMessage,
+  );
+  wrapped.providerStatus = error?.response?.status;
+  return wrapped;
+};
+
+const sendWithTermii = async (phoneNumber, message) => {
+  if (!process.env.TERMII_API_KEY) {
+    throw new Error("Termii SMS is not configured. Set TERMII_API_KEY.");
   }
 
-  const normalizedPhone = normalizePhoneNumber(phoneNumber);
-  const message = `Your Secxion KYC phone verification code is ${code}. This code expires in 10 minutes.`;
-
-  const payload = {
-    api_key: apiKey,
-    to: normalizedPhone,
-    from: senderId,
+  const endpoint = process.env.TERMII_BASE_URL || DEFAULT_TERMII_BASE_URL;
+  const requestBody = {
+    api_key: process.env.TERMII_API_KEY,
+    to: phoneNumber,
+    from: process.env.TERMII_SENDER_ID || "Secxion",
     sms: message,
     type: "plain",
-    channel,
+    channel: process.env.TERMII_CHANNEL || "generic",
   };
-
-  let data;
 
   try {
-    const response = await axios.post(baseUrl, payload, {
-      timeout: 15000,
-    });
-    data = response.data;
+    const response = await axios.post(endpoint, requestBody, { timeout: 10000 });
+    return response.data;
   } catch (error) {
-    const providerData = error?.response?.data;
-    const providerMessage =
-      providerData?.message ||
-      providerData?.error ||
-      error?.message ||
-      "SMS provider request failed";
+    const messageText = String(error?.response?.data?.message || "");
+    if (
+      error?.response?.status === 422 &&
+      messageText.includes("SENDER_ID_NOT_APPROVED")
+    ) {
+      const fallbackBody = { ...requestBody };
+      delete fallbackBody.from;
+      const response = await axios.post(endpoint, fallbackBody, {
+        timeout: 10000,
+      });
+      return response.data;
+    }
 
-    const wrappedError = new Error(`SMS delivery failed: ${providerMessage}`);
-    wrappedError.providerStatus = error?.response?.status || 502;
-    throw wrappedError;
+    throw providerError(error, "Termii could not send the SMS.");
   }
-
-  if (!data || String(data.code) !== "ok") {
-    const providerError =
-      data?.message || data?.error || "Unknown SMS provider response";
-    const wrappedError = new Error(`SMS delivery failed: ${providerError}`);
-    wrappedError.providerStatus = Number(data?.code) || 502;
-    throw wrappedError;
-  }
-
-  return {
-    success: true,
-    messageId: data?.message_id || null,
-  };
 };
 
-const sendWithAfricasTalking = async (phoneNumber, code) => {
-  const apiKey = normalizeSecret(process.env.AT_API_KEY || "");
-  const username = String(process.env.AT_USERNAME || "").trim();
-  const baseUrl = process.env.AT_BASE_URL || DEFAULT_AT_BASE_URL;
-  const senderId = String(process.env.AT_SENDER_ID || "").trim();
-
-  if (!apiKey || !username) {
+const sendWithAfricasTalking = async (phoneNumber, message) => {
+  if (!process.env.AT_API_KEY || !process.env.AT_USERNAME) {
     throw new Error(
-      "SMS provider is not configured. Set AT_API_KEY and AT_USERNAME to enable Africa's Talking SMS.",
+      "Africa's Talking SMS is not configured. Set AT_API_KEY and AT_USERNAME.",
     );
   }
 
-  const normalizedPhone = normalizePhoneNumber(phoneNumber);
-  const message = `Your Secxion KYC phone verification code is ${code}. This code expires in 10 minutes.`;
-
-  const form = new URLSearchParams();
-  form.append("username", username);
-  form.append("to", normalizedPhone);
-  form.append("message", message);
-  if (senderId) {
-    form.append("from", senderId);
-  }
-
-  let data;
-
   try {
-    const response = await axios.post(baseUrl, form.toString(), {
-      timeout: 15000,
-      headers: {
-        apiKey,
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
+    const body = new URLSearchParams({
+      username: process.env.AT_USERNAME,
+      to: phoneNumber,
+      message,
     });
-    data = response.data;
+    if (process.env.AT_SENDER_ID) body.set("from", process.env.AT_SENDER_ID);
+
+    const response = await axios.post(
+      process.env.AT_BASE_URL || DEFAULT_AT_BASE_URL,
+      body,
+      {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+          apiKey: process.env.AT_API_KEY,
+        },
+        timeout: 10000,
+      },
+    );
+    return response.data;
   } catch (error) {
-    const providerData = error?.response?.data;
-    const providerMessage =
-      providerData?.SMSMessageData?.Message ||
-      providerData?.message ||
-      providerData?.error ||
-      error?.message ||
-      "SMS provider request failed";
-
-    const wrappedError = new Error(`SMS delivery failed: ${providerMessage}`);
-    wrappedError.providerStatus = error?.response?.status || 502;
-    throw wrappedError;
+    throw providerError(error, "Africa's Talking could not send the SMS.");
   }
-
-  const recipients = data?.SMSMessageData?.Recipients || [];
-  const first = recipients[0] || null;
-  const atStatusCode = Number(first?.statusCode);
-  const isSuccess =
-    Number.isFinite(atStatusCode) && atStatusCode >= 100 && atStatusCode < 200;
-
-  if (!isSuccess) {
-    const providerError =
-      first?.status ||
-      data?.SMSMessageData?.Message ||
-      data?.message ||
-      "Unknown SMS provider response";
-    const wrappedError = new Error(`SMS delivery failed: ${providerError}`);
-    wrappedError.providerStatus = 400;
-    throw wrappedError;
-  }
-
-  return {
-    success: true,
-    messageId: first?.messageId || null,
-  };
-};
-
-const sendWithDevProvider = async (phoneNumber, code) => {
-  const normalizedPhone = normalizePhoneNumber(phoneNumber);
-  if (!normalizedPhone) {
-    const wrappedError = new Error("SMS delivery failed: invalid phone number");
-    wrappedError.providerStatus = 400;
-    throw wrappedError;
-  }
-
-  console.info("[SMS][DEV] OTP generated for testing", {
-    phoneNumber: normalizedPhone,
-    code,
-  });
-
-  return {
-    success: true,
-    messageId: `dev-${Date.now()}`,
-  };
 };
 
 export const sendKycPhoneOtpSms = async (phoneNumber, code) => {
+  const normalizedPhone = normalizePhoneNumber(phoneNumber);
+  const message = `Secxion KYC verification code: ${code}. This code expires in 10 minutes.`;
   const provider = getSmsProvider();
 
-  if (provider === "dev") {
-    return sendWithDevProvider(phoneNumber, code);
+  if (provider === "termii") {
+    return sendWithTermii(normalizedPhone, message);
   }
-
   if (provider === "africastalking") {
-    return sendWithAfricasTalking(phoneNumber, code);
+    return sendWithAfricasTalking(normalizedPhone, message);
   }
 
-  if (provider !== "termii") {
-    throw new Error(
-      `SMS provider is not supported: ${provider}. Use SMS_PROVIDER=dev, SMS_PROVIDER=termii or SMS_PROVIDER=africastalking.`,
-    );
-  }
-
-  return sendWithTermii(phoneNumber, code);
+  throw new Error(
+    `SMS provider is not supported for production KYC: ${provider}. Use SMS_PROVIDER=termii or SMS_PROVIDER=africastalking.`,
+  );
 };
+

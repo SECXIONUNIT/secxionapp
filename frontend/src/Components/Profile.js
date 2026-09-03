@@ -22,6 +22,7 @@ import { clearState } from '../store/userSlice';
 import SecxionShimmer from './SecxionShimmer';
 import SecxionSpinner from './SecxionSpinner';
 import BackButton from './BackButton';
+import { KYC_ENABLED } from '../config/features';
 
 const Profile = () => {
   const { user } = useSelector((state) => state.user);
@@ -375,15 +376,17 @@ const Profile = () => {
           {/* Edit Button */}
           <div className="flex-shrink-0 flex justify-center lg:justify-end">
             <div className="flex flex-wrap gap-4 justify-center lg:justify-end">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/kyc')}
-                className="inline-flex items-center gap-3 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark-base bg-brand-gold hover:bg-brand-gold-light rounded-xl transition-all duration-300 shadow-brand-gold font-spaceGrotesk"
-              >
-                <FaIdCard className="w-4 h-4" />
-                <span>Identity Verification</span>
-              </motion.button>
+              {KYC_ENABLED && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/kyc')}
+                  className="inline-flex items-center gap-3 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark-base bg-brand-gold hover:bg-brand-gold-light rounded-xl transition-all duration-300 shadow-brand-gold font-spaceGrotesk"
+                >
+                  <FaIdCard className="w-4 h-4" />
+                  <span>Identity Verification</span>
+                </motion.button>
+              )}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}

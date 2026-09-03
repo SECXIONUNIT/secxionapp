@@ -12,6 +12,7 @@ import SummaryApi from '../common';
 import uploadImage from '../helpers/uploadImage';
 import { toUserSafeMessage } from '../utils/userSafeMessage';
 import SecxionLogo from '../Assets/optimized/secxion-logo-112.png';
+import { KYC_ENABLED } from '../config/features';
 
 const emptyForm = {
   fullName: '',
@@ -303,6 +304,11 @@ const KycVerification = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [phoneCode, setPhoneCode] = useState('');
+  const [phoneVerificationSent, setPhoneVerificationSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneVerificationLoading, setPhoneVerificationLoading] =
+    useState(false);
   const [uploading, setUploading] = useState({
     front: false,
     back: false,
@@ -365,6 +371,7 @@ const KycVerification = () => {
           backUrl: result.data.documents?.backUrl || '',
           selfieUrl: result.data.documents?.selfieUrl || '',
         });
+        setPhoneVerified(Boolean(result.data.phoneVerification?.isVerified));
 
         setSelfieCapturedAt(
           result.data.documents?.selfieCapturedAt
@@ -409,6 +416,9 @@ const KycVerification = () => {
           withCountryDialCode(prev.phoneNumber, prev.country, value),
         ),
       }));
+      setPhoneVerified(false);
+      setPhoneVerificationSent(false);
+      setPhoneCode('');
       return;
     }
 
@@ -417,6 +427,9 @@ const KycVerification = () => {
         ...prev,
         phoneNumber: String(value || '').replace(/\D/g, ''),
       }));
+      setPhoneVerified(false);
+      setPhoneVerificationSent(false);
+      setPhoneCode('');
       return;
     }
 
@@ -424,6 +437,71 @@ const KycVerification = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+  };
+
+  const getFullPhoneNumber = () =>
+    buildPhoneWithDialCode(form.country, form.phoneNumber);
+
+  const sendPhoneVerificationCode = async () => {
+    const phoneNumber = getFullPhoneNumber();
+    if (!phoneNumber || phoneNumber.length < 7) {
+      toast.error('Enter a valid phone number before requesting a code.');
+      return;
+    }
+
+    setPhoneVerificationLoading(true);
+    try {
+      const response = await fetch(
+        SummaryApi.sendKycPhoneVerificationCode.url,
+        {
+          method: SummaryApi.sendKycPhoneVerificationCode.method,
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumber }),
+        },
+      );
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Could not send verification code.');
+      }
+      setPhoneVerificationSent(true);
+      toast.success(result.message);
+    } catch (error) {
+      toast.error(
+        toUserSafeMessage(error, 'Could not send verification code.'),
+      );
+    } finally {
+      setPhoneVerificationLoading(false);
+    }
+  };
+
+  const verifyPhoneCode = async () => {
+    const phoneNumber = getFullPhoneNumber();
+    if (!/^\d{4,10}$/.test(phoneCode)) {
+      toast.error('Enter the verification code sent to your phone.');
+      return;
+    }
+
+    setPhoneVerificationLoading(true);
+    try {
+      const response = await fetch(SummaryApi.verifyKycPhoneCode.url, {
+        method: SummaryApi.verifyKycPhoneCode.method,
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, code: phoneCode }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Could not verify phone number.');
+      }
+      setPhoneVerified(true);
+      setPhoneVerificationSent(false);
+      toast.success(result.message);
+    } catch (error) {
+      toast.error(toUserSafeMessage(error, 'Could not verify phone number.'));
+    } finally {
+      setPhoneVerificationLoading(false);
+    }
   };
 
   const handleUpload = async (event, field) => {
@@ -623,6 +701,29 @@ const KycVerification = () => {
   const statusUI = statusConfig[status] || statusConfig.unverified;
   const StatusIcon = statusUI.icon;
 
+  if (!KYC_ENABLED) {
+    return (
+      <div className="mt-24 p-4 sm:p-8 max-w-3xl mx-auto">
+        <div className="premium-bg border border-white/10 rounded-3xl p-8 text-center shadow-2xl">
+          <h1 className="text-2xl sm:text-3xl font-black text-white font-spaceGrotesk uppercase tracking-tighter">
+            Verification Temporarily Unavailable
+          </h1>
+          <p className="mt-4 text-sm text-gray-400">
+            Identity verification is temporarily paused while we finish securing
+            the phone verification provider.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/profile')}
+            className="mt-8 inline-flex items-center justify-center rounded-2xl border border-white/10 bg-red-500/10 px-6 py-2.5 font-black font-spaceGrotesk text-[10px] uppercase tracking-widest text-red-300 transition-all hover:bg-red-500/20 hover:text-white"
+          >
+            Back to Profile
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-24 p-4 sm:p-8 max-w-5xl mx-auto">
       <div className="premium-bg border border-white/10 rounded-3xl p-8 shadow-2xl">
@@ -767,6 +868,59 @@ const KycVerification = () => {
                     className="w-full px-5 py-4 rounded-2xl bg-black/20 border border-white/10 text-white focus:border-brand-gold/50 outline-none transition-all font-medium"
                   />
                 </label>
+
+                <div className="md:col-span-3 flex flex-col gap-4 rounded-2xl border border-white/5 bg-black/20 p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span
+                      className={`text-[10px] font-black uppercase tracking-widest ${phoneVerified ? 'text-emerald-400' : 'text-gray-500'}`}
+                    >
+                      {phoneVerified
+                        ? 'Phone verified'
+                        : 'Phone verification required'}
+                    </span>
+                    {!phoneVerified && (
+                      <button
+                        type="button"
+                        onClick={sendPhoneVerificationCode}
+                        disabled={
+                          !canSubmit || loading || phoneVerificationLoading
+                        }
+                        className="rounded-xl border border-brand-gold/40 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-brand-gold transition-all hover:bg-brand-gold hover:text-brand-dark-base disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {phoneVerificationLoading
+                          ? 'Sending...'
+                          : phoneVerificationSent
+                            ? 'Resend Code'
+                            : 'Send Code'}
+                      </button>
+                    )}
+                  </div>
+                  {phoneVerificationSent && !phoneVerified && (
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={phoneCode}
+                        onChange={(event) =>
+                          setPhoneCode(event.target.value.replace(/\D/g, ''))
+                        }
+                        placeholder="Enter verification code"
+                        maxLength={10}
+                        className="w-full rounded-xl border border-white/10 bg-black/30 px-5 py-3 text-white outline-none focus:border-brand-gold/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={verifyPhoneCode}
+                        disabled={phoneVerificationLoading}
+                        className="rounded-xl bg-brand-gold px-5 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark-base transition-all hover:bg-brand-gold-light disabled:opacity-40"
+                      >
+                        {phoneVerificationLoading
+                          ? 'Checking...'
+                          : 'Verify Code'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -999,6 +1153,7 @@ const KycVerification = () => {
                 loading ||
                 !form.consentAccepted ||
                 !form.frontUrl ||
+                !phoneVerified ||
                 !selfieCapturedAt ||
                 !form.selfieUrl
               }

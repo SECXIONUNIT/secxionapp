@@ -53,7 +53,7 @@ const ChangeUserRole = ({ name, email, role, userId, onClose, callFunc }) => {
         headers: {
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userIds: [userId] }),
       });
 
       const responseData = await fetchResponse.json();

@@ -322,11 +322,26 @@ export const updatePaymentRequestStatus = async (req, res) => {
 
     const userId = paymentRequest.userId;
     const amount = paymentRequest.amount;
+    const previousStatus = paymentRequest.status;
+
+    if (previousStatus === status) {
+      return res.status(409).json({
+        success: false,
+        message: "Payment request already has this status.",
+      });
+    }
+
+    if (["rejected", "completed"].includes(previousStatus)) {
+      return res.status(409).json({
+        success: false,
+        message: "Payment request is already in a final state.",
+      });
+    }
 
     paymentRequest.status = status;
 
-    if (rejectionReason && status === "rejected") {
-      paymentRequest.rejectionReason = rejectionReason;
+    if (status === "rejected") {
+      paymentRequest.rejectionReason = rejectionReason || "Rejected by admin";
 
       const refundResult = await updateWalletBalance(
         userId,

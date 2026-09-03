@@ -1,5 +1,7 @@
 import KycSubmission from "../models/kycSubmissionModel.js";
+import PhoneVerification from "../models/phoneVerificationModel.js";
 import userModel from "../models/userModel.js";
+import crypto from "crypto";
 import { runFaceMatchEngine } from "../utils/faceMatchEngine.js";
 import { sendKycPhoneOtpSms } from "../utils/smsService.js";
 
@@ -10,9 +12,8 @@ const ALLOWED_FACE_MATCH_STATUSES = [
   "passed",
   "failed",
 ];
-const KYC_PHONE_OTP_TTL_MS = 10 * 60 * 1000;
-const kycPhoneVerificationStore = new Map();
-
+const PHONE_CODE_TTL_MS = 10 * 60 * 1000;
+const MAX_PHONE_CODE_ATTEMPTS = 5;
 const normalizeText = (value = "") => String(value).trim();
 const normalizePhoneNumber = (value = "") =>
   String(value)
@@ -24,6 +25,12 @@ const isValidPhoneNumber = (value = "") => {
   const normalized = normalizePhoneNumber(value);
   return /^\+?\d{7,15}$/.test(normalized);
 };
+
+const hashPhoneCode = (code) =>
+  crypto
+    .createHash("sha256")
+    .update(`${process.env.TOKEN_SECRET_KEY}:${code}`)
+    .digest("hex");
 
 const buildKycPayload = (body) => ({
   fullName: normalizeText(body.fullName),
@@ -108,86 +115,57 @@ const validateKycPayload = (payload) => {
 
 export const sendKycPhoneVerificationCode = async (req, res) => {
   try {
-    const rawPhoneNumber = req.body?.phoneNumber;
-    const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
+    const phoneNumber = normalizePhoneNumber(req.body?.phoneNumber);
 
-    if (!phoneNumber || !isValidPhoneNumber(phoneNumber)) {
+    if (!isValidPhoneNumber(phoneNumber)) {
       return res.status(400).json({
         success: false,
         error: true,
-        message:
-          "Please enter a valid phone number with country code (for example: +2348012345678).",
+        message: "Please enter a valid phone number with country code.",
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const now = Date.now();
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await PhoneVerification.findOneAndUpdate(
+      { userId: req.userId },
+      {
+        userId: req.userId,
+        phoneNumber,
+        codeHash: hashPhoneCode(code),
+        expiresAt: new Date(Date.now() + PHONE_CODE_TTL_MS),
+        attempts: 0,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
 
-    kycPhoneVerificationStore.set(String(req.userId), {
-      phoneNumber,
-      otp,
-      expiresAt: now + KYC_PHONE_OTP_TTL_MS,
-      attempts: 0,
-      createdAt: now,
-    });
-
-    await sendKycPhoneOtpSms(phoneNumber, otp);
+    try {
+      await sendKycPhoneOtpSms(phoneNumber, code);
+    } catch (error) {
+      await PhoneVerification.deleteOne({ userId: req.userId });
+      throw error;
+    }
 
     return res.status(200).json({
       success: true,
       error: false,
-      message:
-        "Verification code sent to your phone number. Enter the code to verify your phone for KYC.",
+      message: "Verification code sent. Enter the code to verify your phone.",
     });
   } catch (error) {
     console.error("[KYC] sendKycPhoneVerificationCode error:", error);
-
-    const isDevFallbackEnabled =
-      process.env.NODE_ENV !== "production" &&
-      String(process.env.KYC_PHONE_OTP_DEV_FALLBACK || "true").toLowerCase() ===
-        "true";
-
-    if (isDevFallbackEnabled) {
-      const stored = kycPhoneVerificationStore.get(String(req.userId));
-      if (stored?.otp) {
-        return res.status(200).json({
-          success: true,
-          error: false,
-          fallback: true,
-          debugCode: stored.otp,
-          message:
-            "SMS provider failed in development. Use the debug code returned in this response to continue KYC testing.",
-        });
-      }
-    }
-
-    const isConfigError =
-      error?.message &&
-      error.message.includes("SMS provider is not configured");
     const providerStatus = Number(error?.providerStatus) || null;
-
-    let statusCode = 502;
-    let message = "Failed to send phone verification code via SMS.";
-
-    if (isConfigError) {
-      statusCode = 503;
-      message = error.message;
-    } else if (providerStatus === 401) {
-      statusCode = 502;
-      message =
-        "SMS provider authentication failed. Please verify TERMII_API_KEY configuration.";
-    } else if (providerStatus && providerStatus >= 400 && providerStatus < 500) {
-      statusCode = 400;
-      message = error.message || message;
-    } else if (providerStatus && providerStatus >= 500) {
-      statusCode = 502;
-      message = error.message || message;
-    }
+    const statusCode = error?.message?.includes("not configured")
+      ? 503
+      : providerStatus && providerStatus < 500
+        ? 400
+        : 502;
 
     return res.status(statusCode).json({
       success: false,
       error: true,
-      message,
+      message:
+        statusCode === 503
+          ? error.message
+          : "Could not send the verification code. Please check the number and try again.",
     });
   }
 };
@@ -195,29 +173,22 @@ export const sendKycPhoneVerificationCode = async (req, res) => {
 export const verifyKycPhoneCode = async (req, res) => {
   try {
     const phoneNumber = normalizePhoneNumber(req.body?.phoneNumber);
-    const otp = normalizeText(req.body?.otp);
+    const code = normalizeText(req.body?.code);
 
-    if (!phoneNumber || !isValidPhoneNumber(phoneNumber) || !otp) {
+    if (!isValidPhoneNumber(phoneNumber) || !/^\d{4,10}$/.test(code)) {
       return res.status(400).json({
         success: false,
         error: true,
-        message: "Phone number and verification code are required.",
+        message: "Phone number and a valid verification code are required.",
       });
     }
 
-    const key = String(req.userId);
-    const stored = kycPhoneVerificationStore.get(key);
+    const pendingVerification = await PhoneVerification.findOne({
+      userId: req.userId,
+      phoneNumber,
+    });
 
-    if (!stored || stored.phoneNumber !== phoneNumber) {
-      return res.status(400).json({
-        success: false,
-        error: true,
-        message: "No active verification request found for this phone number.",
-      });
-    }
-
-    if (stored.expiresAt < Date.now()) {
-      kycPhoneVerificationStore.delete(key);
+    if (!pendingVerification || pendingVerification.expiresAt < new Date()) {
       return res.status(400).json({
         success: false,
         error: true,
@@ -225,19 +196,18 @@ export const verifyKycPhoneCode = async (req, res) => {
       });
     }
 
-    if (stored.attempts >= 5) {
-      kycPhoneVerificationStore.delete(key);
-      return res.status(429).json({
+    if (pendingVerification.attempts >= MAX_PHONE_CODE_ATTEMPTS) {
+      await PhoneVerification.deleteOne({ _id: pendingVerification._id });
+      return res.status(400).json({
         success: false,
         error: true,
-        message:
-          "Too many invalid attempts. Please request a new verification code.",
+        message: "Too many invalid attempts. Please request a new code.",
       });
     }
 
-    if (stored.otp !== otp) {
-      stored.attempts += 1;
-      kycPhoneVerificationStore.set(key, stored);
+    if (pendingVerification.codeHash !== hashPhoneCode(code)) {
+      pendingVerification.attempts += 1;
+      await pendingVerification.save();
       return res.status(400).json({
         success: false,
         error: true,
@@ -246,7 +216,7 @@ export const verifyKycPhoneCode = async (req, res) => {
     }
 
     const verifiedAt = new Date();
-
+    await PhoneVerification.deleteOne({ _id: pendingVerification._id });
     await userModel.findByIdAndUpdate(req.userId, {
       $set: {
         phoneNumber,
@@ -255,24 +225,28 @@ export const verifyKycPhoneCode = async (req, res) => {
       },
     });
 
-    kycPhoneVerificationStore.delete(key);
-
     return res.status(200).json({
       success: true,
       error: false,
       message: "Phone number verified successfully for KYC.",
-      data: {
-        phoneNumber,
-        isVerified: true,
-        verifiedAt,
-      },
+      data: { phoneNumber, isVerified: true, verifiedAt },
     });
   } catch (error) {
     console.error("[KYC] verifyKycPhoneCode error:", error);
-    return res.status(500).json({
+    const providerStatus = Number(error?.providerStatus) || null;
+    const statusCode = error?.message?.includes("not configured")
+      ? 503
+      : providerStatus && providerStatus < 500
+        ? 400
+        : 502;
+
+    return res.status(statusCode).json({
       success: false,
       error: true,
-      message: "Failed to verify phone code.",
+      message:
+        statusCode === 503
+          ? error.message
+          : "Could not verify the code. Please try again.",
     });
   }
 };
@@ -291,13 +265,23 @@ export const submitKyc = async (req, res) => {
       });
     }
 
-    const user = await userModel.findById(req.userId).select("_id");
+    const user = await userModel
+      .findById(req.userId)
+      .select("_id phoneNumber isPhoneVerified phoneVerifiedAt");
 
     if (!user) {
       return res.status(404).json({
         success: false,
         error: true,
         message: "User account not found.",
+      });
+    }
+
+    if (!user.isPhoneVerified || user.phoneNumber !== payload.phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message: "Verify this phone number before submitting KYC.",
       });
     }
 
@@ -324,8 +308,8 @@ export const submitKyc = async (req, res) => {
         ...payload,
         phoneVerification: {
           isVerified: true,
-          verifiedAt: now,
-          method: "not_required",
+          verifiedAt: user.phoneVerifiedAt || now,
+          method: "otp",
         },
         consent: {
           accepted: true,
@@ -362,8 +346,8 @@ export const submitKyc = async (req, res) => {
       existing.phoneNumber = payload.phoneNumber;
       existing.phoneVerification = {
         isVerified: true,
-        verifiedAt: now,
-        method: "not_required",
+        verifiedAt: user.phoneVerifiedAt || now,
+        method: "otp",
       };
       existing.consent = {
         accepted: true,

@@ -1,7 +1,7 @@
 <resources>
     <string name="appName">Secxion</string>
-    <string name="launchUrl">https://secxion.com/</string>
-    <string name="hostName">secxion.com</string>
+    <string name="launchUrl">http://10.0.2.2:3000/</string>
+    <string name="hostName">10.0.2.2</string>
 
     <!-- This will be populated once we have the SHA-256 fingerprint -->
     <string name="asset_statements">

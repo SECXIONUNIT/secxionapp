@@ -340,6 +340,36 @@ Motion: Reviewed admin user-role mutation surface without submitting a mutation.
 - Validation: `ChangeUserRole.jsx` diagnostics passed; admin production build passed.
 - Remaining check: KYC review modal and ETH status-change confirmation; large-tablet layout; separate trace of admin HTTP 403 responses.
 
+### 2026-08-19 03:27:59 MST
+
+Motion: Continued Todo 2 with the KYC review modal and large-tablet layout pass.
+
+- Surface: Super Admin `/kyc-verification`, populated approved submission Review modal.
+- Initial evidence: At `544 x 915`, the modal exposed a named dialog, a `44 x 44px` close control, identity details, document links, decision selector, notes, Delete Submission, Cancel, and Save Review. At `1024 x 768`, the modal remained contained within the tablet viewport, but footer actions measured `36px` high.
+- Change: Added explicit labels and IDs for KYC decision, admin notes, and rejection reason. Raised Delete Submission, Cancel, and Save Review to a 44px minimum height.
+- Follow-up correction: Fixed the conditional rejection-reason JSX and corrected an interim hot-reload DOM-nesting issue where the admin-notes label had been inserted inside the decision select.
+- Safety: No KYC review, deletion, approval, or rejection was submitted.
+- Validation: `AdminKycVerification.jsx` diagnostics passed; admin production build passed.
+- Browser limitation: The shared browser page was recycled during the final hot-reload measurement, so the final 44px tablet measurement remains pending a fresh browser pass.
+- Todo 2 mapping: Criteria 1 (action hierarchy), 2 (review-state clarity), 4 (large-tablet containment), and 7 (field labels and touch targets).
+- Degree: 4/5.
+- Remaining check: Fresh browser verification of the corrected KYC modal, ETH status-change confirmation, and separate HTTP 403 trace.
+
+### 2026-08-19 03:37:33 MST
+
+Motion: Fixed the reported Admin All Users delete error.
+
+- Surface: Super Admin All Users > Edit User Role > Delete User.
+- User evidence: Delete action displayed `User IDs are required` instead of deleting the selected user.
+- Root cause: `ChangeUserRole.jsx` sent `{ userId }` to `/api/delete-user`, while the backend controller requires `{ userIds: [...] }` and validates the array before calling `deleteMany`.
+- Fix: Changed the role-modal payload to `{ userIds: [userId] }`, matching the existing row-delete and bulk-delete contract.
+- Safety: No user deletion was retried or performed during validation.
+- Result: PASS for source contract alignment and build validation.
+- Todo 2 mapping: Criteria 2 (clear error-state resolution), 7 (safe destructive action semantics); also a functional launch-risk fix.
+- Degree: 4/5.
+- Validation: `ChangeUserRole.jsx` diagnostics passed; admin production build passed.
+- Remaining check: Execute one authorized QA deletion against an approved disposable test user, then verify refresh and success toast.
+
 ## Todo 2 Quality-Bar Coverage
 
 | Criterion | Current evidence | Status | Next verification |
@@ -416,6 +446,8 @@ Motion: Reviewed authenticated side navigation and the announcement entry point.
 | UI-018 | Admin critical surfaces | Dashboard shell controls and earnings mutation/filter controls needed accessible names and 44px targets. | Accessibility | Fixed and build-verified | Review remaining admin mutation modals and large-tablet layout. |
 | UI-019 | Admin protected data loading | Authenticated dashboard/KYC requests emitted HTTP 403 responses during browser review. | Stability/security | Open | Trace request, CSRF/session state, and backend authorization before launch approval. |
 | UI-020 | Admin role mutation modal | Role modal lacked dialog semantics, labeled close control, associated role field, and explicit action types. | Accessibility | Fixed and build-verified | Review KYC and ETH mutation dialogs without submitting actions. |
+| UI-021 | KYC review modal | Review fields lacked explicit labels and footer actions were below the 44px target on tablet. | Accessibility/responsive | Fixed and build-verified; browser recheck pending | Reopen at large-tablet size and verify corrected field names and action dimensions. |
+| UI-022 | Admin role-modal delete | Role-modal delete sent `userId` instead of required `userIds`, producing `User IDs are required`. | Functional launch risk | Fixed and build-verified; QA deletion pending | Delete an authorized disposable test user and verify success, refresh, and no regression. |
 
 ## Open Review Queue
 

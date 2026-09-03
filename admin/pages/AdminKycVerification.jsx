@@ -452,7 +452,11 @@ const AdminKycVerification = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <label htmlFor="kyc-review-decision" className="sr-only">
+                KYC review decision
+              </label>
               <select
+                id="kyc-review-decision"
                 value={decision}
                 onChange={(event) => setDecision(event.target.value)}
                 className="admin-input px-3 py-2"
@@ -460,7 +464,11 @@ const AdminKycVerification = () => {
                 <option value="approved">Approve</option>
                 <option value="rejected">Reject</option>
               </select>
+              <label htmlFor="kyc-admin-notes" className="sr-only">
+                Admin notes
+              </label>
               <input
+                id="kyc-admin-notes"
                 value={adminNotes}
                 onChange={(event) => setAdminNotes(event.target.value)}
                 placeholder="Admin notes (optional)"
@@ -469,31 +477,37 @@ const AdminKycVerification = () => {
             </div>
 
             {decision === 'rejected' && (
-              <textarea
-                rows={3}
-                value={rejectionReason}
-                onChange={(event) => setRejectionReason(event.target.value)}
-                placeholder="Rejection reason (required)"
-                className="admin-input w-full mb-4 border-red-500/50 px-3 py-2"
-              />
+              <>
+                <label htmlFor="kyc-rejection-reason" className="sr-only">
+                  Rejection reason
+                </label>
+                <textarea
+                  id="kyc-rejection-reason"
+                  rows={3}
+                  value={rejectionReason}
+                  onChange={(event) => setRejectionReason(event.target.value)}
+                  placeholder="Rejection reason (required)"
+                  className="admin-input w-full mb-4 border-red-500/50 px-3 py-2"
+                />
+              </>
             )}
 
             <AdminModalActions padded={false} className="mt-5 justify-end">
               <button
                 onClick={() => deleteSubmission(selected)}
                 disabled={deletingId === selected._id || updating}
-                className="admin-btn-danger mr-auto font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                className="admin-btn-danger mr-auto min-h-11 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {deletingId === selected._id ? 'Deleting...' : 'Delete Submission'}
               </button>
-              <button onClick={() => setSelected(null)} className="admin-btn-muted">Cancel</button>
+              <button onClick={() => setSelected(null)} className="admin-btn-muted min-h-11">Cancel</button>
               <button
                 onClick={submitReview}
                 disabled={
                   updating ||
                   Boolean(deletingId)
                 }
-                className="admin-btn-primary font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                className="admin-btn-primary min-h-11 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {updating ? 'Saving...' : 'Save Review'}
               </button>

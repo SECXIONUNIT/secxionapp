@@ -21,6 +21,7 @@ import Clock from 'react-live-clock';
 import timezones from '../helpers/timeZones';
 import './Header.css';
 import SecxionLogo from '../Assets/optimized/secxion-logo-112.png';
+import { KYC_ENABLED } from '../config/features';
 
 const SidePanel = ({ open, setOpen, onCloseMenu, onOpenLiveScript }) => {
   const [timezone, setTimezone] = useState('Africa/Lagos');
@@ -105,7 +106,7 @@ const SidePanel = ({ open, setOpen, onCloseMenu, onOpenLiveScript }) => {
   const hideProfile = location.pathname === '/profile';
   const hideConnect = location.pathname === '/report';
   const hideMarketplace = location.pathname === '/section';
-  const hideKyc = location.pathname === '/kyc';
+  const hideKyc = !KYC_ENABLED || location.pathname === '/kyc';
 
   const navigationItems = [
     {

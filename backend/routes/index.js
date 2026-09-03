@@ -158,9 +158,9 @@ import {
   reviewKycSubmission,
   deleteKycSubmission,
   getKycStats,
+  ingestKycFaceMatchResult,
   sendKycPhoneVerificationCode,
   verifyKycPhoneCode,
-  ingestKycFaceMatchResult,
 } from "../controller/kycController.js";
 import {
   confirmNewsletterSubscription,
@@ -591,10 +591,12 @@ router.post("/confirm-reset", verifyReset);
 router.post("/resend-verification", resendVerificationEmailController);
 router.post("/send-bank-code", authToken, sendBankAddCode);
 router.post("/verify-add-bank", authToken, verifyAndAddBankAccount);
-router.post("/kyc/phone/send-code", authToken, noCache, sendKycPhoneVerificationCode);
-router.post("/kyc/phone/verify-code", authToken, noCache, verifyKycPhoneCode);
 router.post("/kyc/submit", authToken, noCache, submitKyc);
 router.get("/kyc/me", authToken, noCache, getMyKyc);
+router.post("/kyc/phone/send", authToken, noCache, sendKycPhoneVerificationCode);
+router.post("/kyc/phone/send-code", authToken, noCache, sendKycPhoneVerificationCode);
+router.post("/kyc/phone/verify", authToken, noCache, verifyKycPhoneCode);
+router.post("/kyc/phone/verify-code", authToken, noCache, verifyKycPhoneCode);
 router.post("/kyc/face-match/result", noCache, ingestKycFaceMatchResult);
 
 // Admin panel
@@ -614,6 +616,7 @@ router.delete("/delete-user", authToken, verifyAdmin, csrfProtection, deleteUser
 router.get(
   "/wallet/balance/:userId",
   authToken,
+  verifyAdmin,
   noCache,
   getOtherUserWalletBalance,
 );

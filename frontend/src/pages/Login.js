@@ -390,7 +390,7 @@ const Login = () => {
               htmlFor="password"
               className="block text-brand-gold font-bold font-spaceGrotesk text-xs uppercase tracking-widest mb-2"
             >
-              Security Password
+              Password
             </label>
             <div className="relative flex items-center w-full rounded-xl border border-white/10 bg-black/20 focus-within:border-brand-gold/50 transition-colors">
               <input

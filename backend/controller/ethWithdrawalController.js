@@ -319,6 +319,20 @@ export const updateEthWithdrawalStatus = async (req, res) => {
     const userId = request.userId;
     const nairaAmount = request.nairaRequestedAmount;
 
+    if (request.status === status) {
+      return res.status(409).json({
+        success: false,
+        message: "ETH withdrawal already has this status.",
+      });
+    }
+
+    if (["Rejected", "Processed"].includes(request.status)) {
+      return res.status(409).json({
+        success: false,
+        message: "ETH withdrawal is already in a final state.",
+      });
+    }
+
     if (status === "Rejected") {
       request.status = "Rejected";
       request.rejectionReason = rejectionReason || "Rejected by admin";

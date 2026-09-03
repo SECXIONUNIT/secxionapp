@@ -376,12 +376,12 @@ const SummaryApi = {
     url: `${backendDomain}/api/kyc/submit`,
     method: 'POST',
   },
-  sendKycPhoneCode: {
-    url: `${backendDomain}/api/kyc/phone/send-code`,
+  sendKycPhoneVerificationCode: {
+    url: `${backendDomain}/api/kyc/phone/send`,
     method: 'POST',
   },
   verifyKycPhoneCode: {
-    url: `${backendDomain}/api/kyc/phone/verify-code`,
+    url: `${backendDomain}/api/kyc/phone/verify`,
     method: 'POST',
   },
   getMyKyc: {
