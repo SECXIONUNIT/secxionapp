@@ -44,33 +44,16 @@ async function userSignUpController(req, res, next) {
 
     // Save user FIRST to the database
     const newUser = new userModel(tempUser);
-    console.log("📝 Attempting to save user:", {
-      name: newUser.name,
-      email: newUser.email,
-      hasPassword: !!newUser.password,
-    });
-
     try {
       await newUser.save();
-      console.log("✅ User saved successfully:", newUser._id);
     } catch (saveError) {
-      console.error("❌ User save failed:", {
-        code: saveError.code,
-        message: saveError.message,
-        errors: saveError.errors,
-      });
+      console.error("User save failed");
       throw saveError;
     }
 
     // Send verification email in background (fire-and-forget, don't block signup)
     sendVerificationEmail(email, emailToken)
-      .then(() => console.log("✅ Verification email sent to:", email))
-      .catch((emailError) =>
-        console.error(
-          "⚠️ Email send error (non-blocking):",
-          emailError.message,
-        ),
-      );
+      .catch(() => console.error("Verification email delivery failed"));
 
     // Award signup bonus (non-blocking, also fire-and-forget)
     updateWalletBalance(

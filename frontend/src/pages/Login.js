@@ -288,7 +288,7 @@ const Login = () => {
 
   return (
     <section
-      className="login-page min-h-screen flex items-center justify-center relative bg-cover bg-center bg-no-repeat"
+      className="login-page min-h-screen overflow-y-auto flex items-start sm:items-center justify-center relative bg-cover bg-center bg-no-repeat py-20 sm:py-10"
       style={{ backgroundImage: `url(${loginBackground})` }}
     >
       <Navigation currentPage="signin" />
@@ -310,7 +310,7 @@ const Login = () => {
 
       <div className="absolute inset-0 bg-black/70 z-0"></div>
 
-      <div className="relative p-6 sm:p-10 mt-10 w-full max-w-md z-10 bg-transparent shadow-none border-none">
+      <div className="relative p-6 sm:p-10 my-4 sm:my-10 pb-20 w-full max-w-md z-10 bg-transparent shadow-none border-none">
         <BackButton fallbackTo="/" className="mb-6" />
         <div className="flex items-center justify-center mb-4">
           <a href="/" className="relative">

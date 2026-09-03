@@ -23,6 +23,7 @@ const Reset = () => {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [newValue, setNewValue] = useState('');
+  const [confirmNewValue, setConfirmNewValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -75,6 +76,11 @@ const Reset = () => {
       return;
     }
 
+    if (type === 'password' && newValue !== confirmNewValue) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch(SummaryApi.confirmReset.url, {
@@ -121,6 +127,7 @@ const Reset = () => {
     setStep('select');
     setCode('');
     setNewValue('');
+    setConfirmNewValue('');
   };
 
   const getIcon = () => {
@@ -389,6 +396,30 @@ const Reset = () => {
                         onChange={(e) => setNewValue(e.target.value)}
                       />
                     </div>
+
+                    {type === 'password' && (
+                      <div>
+                        <label className="block text-sm font-semibold text-yellow-200 mb-3">
+                          Confirm New Password
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="Re-enter your new password"
+                          className={`w-full px-4 py-4 bg-gray-800 border rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-colors duration-200 text-yellow-100 placeholder-yellow-400 ${
+                            confirmNewValue && confirmNewValue !== newValue
+                              ? 'border-red-500'
+                              : 'border-yellow-700'
+                          }`}
+                          value={confirmNewValue}
+                          onChange={(e) => setConfirmNewValue(e.target.value)}
+                        />
+                        {confirmNewValue && confirmNewValue !== newValue && (
+                          <p className="mt-2 text-sm text-red-400">
+                            Passwords do not match.
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex space-x-4">
                       <BackButton

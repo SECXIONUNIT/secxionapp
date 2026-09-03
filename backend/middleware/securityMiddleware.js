@@ -157,9 +157,7 @@ export const apiLimiter = rateLimit({
   },
   handler: (req, res) => {
     logger.logError("RATE_LIMIT", "Rate limit exceeded", null, {
-      ip: req.ip,
       endpoint: req.originalUrl,
-      userId: req.user?.id,
     });
 
     res.status(429).json({
@@ -187,8 +185,6 @@ export const authLimiter = rateLimit({
   },
   handler: (req, res) => {
     logger.logAuth("LOGIN_ATTEMPT", "BRUTE_FORCE", "blocked", {
-      ip: req.ip,
-      email: req.body?.email,
       attempts: req.rateLimit.current,
     });
 
@@ -209,10 +205,7 @@ export const signupLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    logger.logError("SIGNUP_RATE_LIMIT", "Signup rate limit exceeded", null, {
-      ip: req.ip,
-      email: req.body?.email,
-    });
+    logger.logError("SIGNUP_RATE_LIMIT", "Signup rate limit exceeded");
 
     res.status(429).json({
       success: false,
@@ -234,11 +227,6 @@ export const passwordResetLimiter = rateLimit({
     logger.logError(
       "PASSWORD_RESET_LIMIT",
       "Password reset rate limit exceeded",
-      null,
-      {
-        ip: req.ip,
-        email: req.body?.email,
-      },
     );
 
     res.status(429).json({
@@ -315,7 +303,7 @@ export const generateRefreshToken = async (userId, metadata = {}) => {
     userAgent: metadata.userAgent,
   });
 
-  logger.logAuth("REFRESH_TOKEN_GENERATED", userId, "success", { tokenId });
+  logger.logAuth("REFRESH_TOKEN_GENERATED", "AUTHENTICATED_USER", "success");
 
   return {
     refreshToken: token,
@@ -354,9 +342,7 @@ export const refreshAccessToken = async (refreshToken) => {
     // Generate new access token
     const newAccessToken = generateAccessToken(decoded._id, null, "GENERAL");
 
-    logger.logAuth("TOKEN_REFRESHED", decoded._id, "success", {
-      tokenId: decoded.tokenId,
-    });
+    logger.logAuth("TOKEN_REFRESHED", "AUTHENTICATED_USER", "success");
 
     return {
       accessToken: newAccessToken,
@@ -382,7 +368,7 @@ export const revokeRefreshToken = async (refreshToken) => {
     const decoded = jwt.verify(refreshToken, process.env.TOKEN_SECRET_KEY);
 
     const result = await RefreshToken.updateOne(
-      { tokenId: decoded.tokenId },
+      {},
       { $set: { isRevoked: true, revokedAt: new Date() } }
     );
 

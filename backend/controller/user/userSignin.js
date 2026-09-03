@@ -11,9 +11,6 @@ async function userSignInController(req, res, next) {
   try {
     const { email: rawEmail, password, turnstileToken, puzzleSolved } = req.body;
     const email = rawEmail?.toLowerCase().trim();
-    console.log("🔐 Login attempt:");
-    console.log("📧 Email:", email);
-    console.log("🔒 Verification method:", puzzleSolved ? "Custom Puzzle" : "Turnstile");
 
     if (!email || !password) {
       const err = new Error("Please provide email and password.");
@@ -32,13 +29,12 @@ async function userSignInController(req, res, next) {
       const turnstileResult = await verifyTurnstileToken(turnstileToken, remoteIp);
       
       if (!turnstileResult.success) {
-        console.log("❌ Turnstile verification failed:", turnstileResult.errorCodes);
+        console.log("Turnstile verification failed");
         const err = new Error("Human verification failed. Please try again.");
         err.status = 403;
         throw err;
       }
     } else {
-      console.log(`🛡️ Verification bypassed via ${isMobileApp ? "Mobile Header" : "Custom Puzzle"}`);
     }
 
     const user = await userModel.findOne({ email }).select("+password");
@@ -79,7 +75,6 @@ async function userSignInController(req, res, next) {
       sameSite: isProduction ? "none" : "lax",
       path: "/",
     };
-    console.log("✅ Login successful for:", email);
     res
       .cookie("token", token, tokenOptions)
       .cookie("refreshToken", refreshToken, tokenOptions)

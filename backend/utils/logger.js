@@ -109,10 +109,9 @@ logger.levels = {
 
 // Custom logging methods for different contexts
 logger.logAuth = (action, userId, status, details = {}) => {
-  logger.info(`[AUTH] ${action} - User: ${userId}`, {
+  logger.info(`[AUTH] ${action}`, {
     context: "auth",
     action,
-    userId,
     status,
     timestamp: new Date().toISOString(),
     ...details,
@@ -151,8 +150,6 @@ logger.logError = (errorType, message, error = null, context = {}) => {
   logger.error(`[${errorType}] ${message}`, {
     context: "error",
     errorType,
-    errorMessage: error?.message,
-    errorStack: error?.stack,
     ...context,
   });
 };

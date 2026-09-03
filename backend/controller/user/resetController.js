@@ -62,10 +62,10 @@ export async function sendResetCode(req, res) {
 
     res.json({ success: true, message: `Reset code sent to ${email}` });
   } catch (err) {
-    console.error("sendResetCode error:", err);
+    console.error("sendResetCode failed");
     res
       .status(500)
-      .json({ success: false, message: "Server error", error: err.message });
+      .json({ success: false, message: "Server error" });
   }
 }
 
@@ -84,24 +84,12 @@ export async function verifyReset(req, res) {
     const submittedCode = code?.toString();
     const storedCode = user.resetToken?.toString();
 
-    // Debug logs
-    console.log("Submitted code:", submittedCode);
-    console.log("Stored code:", storedCode);
-    console.log(
-      "Token expiry:",
-      user.resetTokenExpiry,
-      "Current time:",
-      Date.now(),
-    );
-
     if (
       !storedCode ||
       submittedCode !== storedCode ||
       Date.now() > user.resetTokenExpiry
     ) {
-      console.warn(
-        `Failed reset attempt: email=${email}, code=${submittedCode}`,
-      );
+      console.warn("Failed reset attempt: invalid or expired code");
       return res
         .status(400)
         .json({ success: false, message: "Invalid or expired code" });
@@ -125,9 +113,9 @@ export async function verifyReset(req, res) {
       message: `${type === "password" ? "Password" : "Telegram number"} updated.`,
     });
   } catch (err) {
-    console.error("verifyReset error:", err);
+    console.error("verifyReset failed");
     res
       .status(500)
-      .json({ success: false, message: "Server error", error: err.message });
+      .json({ success: false, message: "Server error" });
   }
 }

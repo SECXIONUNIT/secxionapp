@@ -28,9 +28,8 @@ export default function errorHandler(err, req, res, next) {
     message = "Token expired";
   }
 
-  console.error("❌ API Error:", {
+  console.error("API request failed:", {
     status,
-    message: err.message,
     path: req.originalUrl,
     method: req.method,
   });

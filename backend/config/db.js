@@ -41,9 +41,8 @@ async function connectDB() {
 
     await mongoose.connect(mongoUri, mongoOptions);
 
-    const db = mongoose.connection.getClient().db;
     console.log("✅ Successfully connected to MongoDB Atlas");
-    console.log("   Database:", db.namespace);
+    console.log("   Database:", mongoose.connection.name);
 
     return;
   } catch (atlasErr) {

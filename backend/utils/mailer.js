@@ -52,20 +52,11 @@ const NEWSLETTER_STRICT_MODE =
 const HOSTINGER_ENFORCE_AUTH_FROM =
   String(process.env.HOSTINGER_ENFORCE_AUTH_FROM || "true").toLowerCase() !== "false";
 
-console.log("📧 Email Configuration:");
-console.log("   FRONTEND_URL:", FRONTEND_URL);
+console.log("Email service initializing");
 
 // Primary Transporter: Hostinger (verify@secxion.com)
 let primaryTransporter = null;
 if (HOSTINGER_SMTP_HOST && HOSTINGER_SMTP_USER && HOSTINGER_SMTP_PASS) {
-  console.log("   HOSTINGER_SMTP_HOST:", HOSTINGER_SMTP_HOST);
-  console.log("   HOSTINGER_SMTP_PORT:", HOSTINGER_SMTP_PORT || 465);
-  console.log("   HOSTINGER_SMTP_USER:", HOSTINGER_SMTP_USER);
-  console.log(
-    "   HOSTINGER_SMTP_PASS:",
-    HOSTINGER_SMTP_PASS ? "✓ set" : "❌ not set",
-  );
-
   primaryTransporter = nodemailer.createTransport({
     host: HOSTINGER_SMTP_HOST,
     port: parseInt(HOSTINGER_SMTP_PORT || "465", 10),
@@ -88,7 +79,6 @@ if (HOSTINGER_SMTP_HOST && HOSTINGER_SMTP_USER && HOSTINGER_SMTP_PASS) {
 // Secondary Transporter: Brevo (formerly Sendinblue)
 let secondaryTransporter = null;
 if (BREVO_SMTP_HOST && BREVO_SMTP_USER && BREVO_SMTP_PASS) {
-  console.log("   BREVO configured as fallback");
   secondaryTransporter = nodemailer.createTransport({
     host: BREVO_SMTP_HOST,
     port: parseInt(BREVO_SMTP_PORT || "587", 10),
@@ -109,7 +99,6 @@ if (BREVO_SMTP_HOST && BREVO_SMTP_USER && BREVO_SMTP_PASS) {
 // Tertiary Transporter: Gmail
 let gmailTransporter = null;
 if (MAIL_USER && MAIL_PASS) {
-  console.log("   Gmail configured as fallback");
   gmailTransporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -134,10 +123,10 @@ const testPrimaryConnection = async () => {
   }
   try {
     await primaryTransporter.verify();
-    console.log("✅ Hostinger SMTP connection verified successfully");
+    console.log("Hostinger SMTP connection verified");
     return true;
   } catch (error) {
-    console.error("❌ Hostinger SMTP connection failed:", error.message);
+    console.error("Hostinger SMTP connection failed");
     return false;
   }
 };
@@ -150,10 +139,10 @@ const testSecondaryConnection = async () => {
   }
   try {
     await secondaryTransporter.verify();
-    console.log("✅ Brevo SMTP connection verified successfully");
+    console.log("Brevo SMTP connection verified");
     return true;
   } catch (error) {
-    console.error("❌ Brevo SMTP connection failed:", error.message);
+    console.error("Brevo SMTP connection failed");
     return false;
   }
 };
@@ -416,7 +405,6 @@ const sendViaBrevoAPI = async (options, context) => {
   }
 
   try {
-    console.log(`📧 Attempting Brevo HTTP API for [${context}]...`);
     const response = await axios.post(
       "https://api.brevo.com/v3/smtp/email",
       payload,
@@ -429,15 +417,9 @@ const sendViaBrevoAPI = async (options, context) => {
         timeout: 30000,
       },
     );
-    console.log(
-      `✅ Email sent via Brevo HTTP API [${context}]:`,
-      response.data.messageId || "success",
-    );
     return { messageId: response.data.messageId || "brevo-api-success" };
   } catch (error) {
-    const errorMsg = error.response?.data?.message || error.message;
-    console.error(`❌ Brevo HTTP API failed for [${context}]:`, errorMsg);
-    throw new Error(`Brevo HTTP API failed: ${errorMsg}`);
+    throw new Error("Brevo HTTP API failed");
   }
 };
 
@@ -487,24 +469,16 @@ const sendEmail = async (options, context, sendPolicy = {}) => {
   // Method 1: Try Hostinger SMTP first (primary)
   if (primaryTransporter) {
     try {
-      console.log(`✉️ Attempting Hostinger SMTP for [${context}]...`);
       const hostingerOptions = getHostingerSendOptions(options);
       const info = await withTimeout(
         primaryTransporter.sendMail(hostingerOptions),
         SMTP_TIMEOUT,
         "Hostinger SMTP timeout",
       );
-      console.log(
-        `✅ Email sent via Hostinger SMTP [${context}]:`,
-        info.messageId,
-      );
       return info;
     } catch (hostingerError) {
-      errors.push(`Hostinger SMTP: ${hostingerError.message}`);
-      console.error(
-        `❌ Hostinger SMTP failed for [${context}]:`,
-        hostingerError.message,
-      );
+      errors.push("Hostinger SMTP failed");
+      console.error("Hostinger SMTP failed");
     }
   }
 
@@ -520,7 +494,6 @@ const sendEmail = async (options, context, sendPolicy = {}) => {
   // Method 3: Try Brevo SMTP
   if (secondaryTransporter) {
     try {
-      console.log(`🔄 Trying Brevo SMTP for [${context}]...`);
       const modifiedOptions = { ...options };
       if (BREVO_SENDER_FROM_EMAIL) {
         modifiedOptions.from = `"${DEFAULT_FROM_NAME}" <${BREVO_SENDER_FROM_EMAIL}>`;
@@ -531,21 +504,16 @@ const sendEmail = async (options, context, sendPolicy = {}) => {
         SMTP_TIMEOUT,
         "Brevo SMTP timeout",
       );
-      console.log(`✅ Email sent via Brevo SMTP [${context}]:`, info.messageId);
       return info;
     } catch (brevoError) {
-      errors.push(`Brevo SMTP: ${brevoError.message}`);
-      console.error(
-        `❌ Brevo SMTP failed for [${context}]:`,
-        brevoError.message,
-      );
+      errors.push("Brevo SMTP failed");
+      console.error("Brevo SMTP failed");
     }
   }
 
   // Method 4: Try Gmail SMTP as last resort
   if (allowGmailFallback && gmailTransporter) {
     try {
-      console.log(`🔄 Trying Gmail SMTP for [${context}]...`);
       const modifiedOptions = { ...options };
       modifiedOptions.from = `"${DEFAULT_FROM_NAME}" <${MAIL_USER}>`;
       modifiedOptions.replyTo = REPLY_TO_EMAIL;
@@ -554,14 +522,10 @@ const sendEmail = async (options, context, sendPolicy = {}) => {
         SMTP_TIMEOUT,
         "Gmail SMTP timeout",
       );
-      console.log(`✅ Email sent via Gmail SMTP [${context}]:`, info.messageId);
       return info;
     } catch (gmailError) {
-      errors.push(`Gmail SMTP: ${gmailError.message}`);
-      console.error(
-        `❌ Gmail SMTP failed for [${context}]:`,
-        gmailError.message,
-      );
+      errors.push("Gmail SMTP failed");
+      console.error("Gmail SMTP failed");
     }
   }
 
