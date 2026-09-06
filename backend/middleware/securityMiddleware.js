@@ -242,6 +242,7 @@ export const passwordResetLimiter = rateLimit({
 // ============================================
 
 import RefreshToken from "../models/refreshTokenModel.js";
+import User from "../models/userModel.js";
 
 /**
  * Generate new access token
@@ -339,8 +340,17 @@ export const refreshAccessToken = async (refreshToken) => {
       throw new Error("Refresh token has expired");
     }
 
-    // Generate new access token
-    const newAccessToken = generateAccessToken(decoded._id, null, "GENERAL");
+    const user = await User.findById(decoded._id).select("email role");
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Preserve the user's identity and authorization claims during refresh.
+    const newAccessToken = generateAccessToken(
+      decoded._id,
+      user.email,
+      user.role,
+    );
 
     logger.logAuth("TOKEN_REFRESHED", "AUTHENTICATED_USER", "success");
 
@@ -368,7 +378,7 @@ export const revokeRefreshToken = async (refreshToken) => {
     const decoded = jwt.verify(refreshToken, process.env.TOKEN_SECRET_KEY);
 
     const result = await RefreshToken.updateOne(
-      {},
+      { tokenId: decoded.tokenId, userId: decoded._id, token: refreshToken },
       { $set: { isRevoked: true, revokedAt: new Date() } }
     );
 

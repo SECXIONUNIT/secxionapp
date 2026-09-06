@@ -9,6 +9,12 @@ import { store } from '../store/store';
 import { logout, setUserDetails } from '../store/userSlice';
 import { toUserSafeMessage, USER_MESSAGE } from './userSafeMessage';
 
+const getBackendBaseUrl = () => {
+  if (process.env.NODE_ENV !== 'development') return '';
+  if (typeof window === 'undefined') return 'http://localhost:5001';
+  return `${window.location.protocol}//${window.location.hostname}:5001`;
+};
+
 const getStoredToken = () => {
   const token = localStorage.getItem('token');
 
@@ -46,7 +52,7 @@ const attemptTokenRefresh = async () => {
   isRefreshing = true;
 
   try {
-    const response = await fetch('/api/refresh-token', {
+    const response = await fetch(`${getBackendBaseUrl()}/api/refresh-token`, {
       method: 'POST',
       credentials: 'include',
     });

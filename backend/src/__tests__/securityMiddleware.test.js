@@ -140,29 +140,31 @@ describe("Security Middleware", () => {
   describe("Token Refresh", () => {
     it("should refresh access token with valid refresh token", async () => {
       const userId = "user123";
-      const refreshToken = generateRefreshToken(userId).refreshToken;
-      const refreshed = refreshAccessToken(refreshToken);
+      const refreshToken = (await generateRefreshToken(userId)).refreshToken;
+      const refreshed = await refreshAccessToken(refreshToken);
 
       expect(refreshed).toBeDefined();
       expect(typeof refreshed.accessToken).toBe("string");
-      expect(refreshed.expiresIn).toBe("15m");
+      expect(refreshed.expiresIn).toBe("1h");
     });
 
-    it("should not refresh revoked tokens", () => {
+    it("should not refresh revoked tokens", async () => {
       const userId = "user123";
-      const refreshToken = generateRefreshToken(userId).refreshToken;
-      revokeRefreshToken(refreshToken);
+      const refreshToken = (await generateRefreshToken(userId)).refreshToken;
+      await revokeRefreshToken(refreshToken);
 
-      expect(() => refreshAccessToken(refreshToken)).toThrow();
+      await expect(refreshAccessToken(refreshToken)).rejects.toEqual(
+        expect.objectContaining({ code: "INVALID_REFRESH_TOKEN" }),
+      );
     });
   });
 
   describe("Token Revocation", () => {
     it("should revoke refresh token on logout", async () => {
       const userId = "user123";
-      const refreshToken = generateRefreshToken(userId).refreshToken;
+      const refreshToken = (await generateRefreshToken(userId)).refreshToken;
 
-      expect(() => revokeRefreshToken(refreshToken)).not.toThrow();
+      await expect(revokeRefreshToken(refreshToken)).resolves.toBeUndefined();
     });
   });
 });
