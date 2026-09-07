@@ -162,7 +162,7 @@ const ContactUs = () => {
                   Send us an email anytime
                 </p>
                 <a
-                  href="mailto:Secxion@mail.com"
+                  href="mailto:moderator@mysecxion.com"
                   className="text-yellow-500 hover:text-yellow-400 font-medium"
                 >
                   moderator@mysecxion.com

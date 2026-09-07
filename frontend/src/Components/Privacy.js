@@ -232,10 +232,10 @@ const Privacy = () => {
                   You may have rights to access, correct, or delete your data
                   under applicable privacy laws. Please contact us at{' '}
                   <a
-                    href="mailto:secxion@mail.com"
+                    href="mailto:moderator@mysecxion.com"
                     className="text-yellow-400 hover:text-yellow-300 font-medium underline"
                   >
-                    secxion@mail.com
+                    moderator@mysecxion.com
                   </a>{' '}
                   to exercise these rights.
                 </p>

@@ -338,10 +338,10 @@ const Terms = () => {
                   <div className="flex items-center">
                     <Mail className="h-5 w-5 text-yellow-400 mr-3" />
                     <a
-                      href="mailto:Secxion@mail.com"
+                      href="mailto:moderator@mysecxion.com"
                       className="text-yellow-400 hover:text-yellow-300 font-medium underline"
                     >
-                      Secxion@mail.com
+                      moderator@mysecxion.com
                     </a>
                   </div>
                 </div>
